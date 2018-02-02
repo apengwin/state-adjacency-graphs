@@ -1,32 +1,17 @@
 import collections
 import pysal as ps
+import os
 
 
-def _create_polymap(shp_path, pysal_shp_obj, geoid_column):
-    split = shp_path.split('.')
-    split[-1] = 'dbf'
-    dbf_dir = '.'.join(split)
+def create_polymap(shp_path, pysal_shp_obj, geoid_column):
+    filename, ext = os.path.splitext(shp_path)
+    dbf_dir = '.'.join(filename, "dbf")
     dbf = ps.open(dbf_dir)
 
     geoid_list = dbf.by_col_array(geoid_column)
     geom_list = [x for x in pysal_shp_obj]
     return {geoid_list[i][0]: geom_list[i] for i in range(len(geom_list))}
 
-
-def _twostep(polymap):
-    """ Set the self.neighbors
-    """
-    vertices = collections.defaultdict(set)
-    for i, s in polymap.items():
-        newvertices = s.vertices[:-1]
-        for v in newvertices:
-            vertices[v].add(i)
-
-    w = collections.defaultdict(set)
-    for neighbors in vertices.values():
-        for neighbor in neighbors:
-            w[neighbor] = w[neighbor] | neighbors
-    return w
 
 
 # TODO: it might be nice to use abstract base classes here to define a
@@ -62,4 +47,20 @@ class TwoStepGraph(object):
             self.loaded_polymap = _create_polymap(shp_path,
                                                   self.loaded_geodata,
                                                   geoid_column)
-        self.neighbors = _twostep(self._loaded_polymap)
+        self.neighbors = self._twostep(self._loaded_polymap)
+
+    def _twostep(self, polymap):
+        """ Set the self.neighbors
+        """
+        vertices = collections.defaultdict(set)
+        for i, s in polymap.items():
+            newvertices = s.vertices[:-1]
+            for v in newvertices:
+                vertices[v].add(i)
+
+        w = collections.defaultdict(set)
+        for neighbors in vertices.values():
+            for neighbor in neighbors:
+                w[neighbor] = w[neighbor] | neighbors
+        return w
+
